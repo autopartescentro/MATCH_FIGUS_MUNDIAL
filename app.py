@@ -70,8 +70,24 @@ PAISES = {
 
 NUMEROS = list(range(1, 21))
 
+# Figuritas especiales del álbum
+# FWC va de FWC00 a FWC19.
+# Coca-Cola queda cargado como COC00 a COC19 para poder marcarla igual que las demás.
+EXTRAS = {
+    "FWC": {
+        "nombre": "🏆 FIFA World Cup",
+        "numeros": [f"{i:02d}" for i in range(0, 20)]
+    },
+    "COC": {
+        "nombre": "🥤 Coca-Cola",
+        "numeros": [f"{i:02d}" for i in range(0, 20)]
+    }
+}
+
 def todas_las_figus():
-    return [f"{codigo}{num}" for codigo in PAISES.keys() for num in NUMEROS]
+    figus_paises = [f"{codigo}{num}" for codigo in PAISES.keys() for num in NUMEROS]
+    figus_extras = [f"{codigo}{num}" for codigo, data in EXTRAS.items() for num in data["numeros"]]
+    return figus_paises + figus_extras
 
 def calcular_faltantes(album):
     return sorted(set(todas_las_figus()) - set(album))
@@ -585,6 +601,27 @@ with tab2:
                         if st.checkbox(figu, value=figu in repetidas_guardadas, key=f"rep_{figu}"):
                             nuevas_repetidas.add(figu)
 
+    st.subheader("⭐ Figuritas especiales")
+    for codigo, data in EXTRAS.items():
+        with st.expander(f"{data['nombre']} — {codigo}"):
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("**📌 Ya la tengo**")
+                cols_album = st.columns(4)
+                for i, num in enumerate(data["numeros"]):
+                    figu = f"{codigo}{num}"
+                    with cols_album[i % 4]:
+                        if st.checkbox(figu, value=figu in album_guardado, key=f"album_{figu}"):
+                            nuevo_album.add(figu)
+            with col2:
+                st.markdown("**✅ Repetida**")
+                cols_rep = st.columns(4)
+                for i, num in enumerate(data["numeros"]):
+                    figu = f"{codigo}{num}"
+                    with cols_rep[i % 4]:
+                        if st.checkbox(figu, value=figu in repetidas_guardadas, key=f"rep_{figu}"):
+                            nuevas_repetidas.add(figu)
+
     album_final = set(nuevo_album).union(nuevas_repetidas)
     faltantes = calcular_faltantes(album_final)
 
@@ -662,11 +699,15 @@ with tab3:
             st.success("Figuritas agregadas.")
 
     st.subheader("Carga manual rápida")
+    opciones_manual = list(PAISES.keys()) + list(EXTRAS.keys())
     col_a, col_b = st.columns(2)
     with col_a:
-        pais_manual = st.selectbox("País", list(PAISES.keys()))
+        pais_manual = st.selectbox("País / especial", opciones_manual)
     with col_b:
-        numero_manual = st.selectbox("Número", NUMEROS)
+        if pais_manual in EXTRAS:
+            numero_manual = st.selectbox("Número", EXTRAS[pais_manual]["numeros"])
+        else:
+            numero_manual = st.selectbox("Número", NUMEROS)
 
     destino_manual = st.radio("Guardar manual como", ["Ya la tengo en el álbum", "Repetida para cambiar"], key="destino_manual")
 
