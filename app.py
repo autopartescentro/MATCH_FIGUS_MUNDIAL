@@ -14,6 +14,9 @@ except Exception:
 
 DB = Path("database.json")
 
+ADMIN_USER = "admin"
+ADMIN_PASSWORD = "Regina2026"
+
 PAISES = {
     "MEX": "🇲🇽 México",
     "RSA": "🇿🇦 Sudáfrica",
@@ -65,6 +68,8 @@ def load_db():
     else:
         db = {"users": {}, "messages": []}
 
+    if "users" not in db:
+        db["users"] = {}
     if "messages" not in db:
         db["messages"] = []
 
@@ -108,7 +113,6 @@ def normalizar_texto(texto):
 def detectar_figu(texto):
     limpio = normalizar_texto(texto)
 
-    # Correcciones comunes OCR
     correcciones = {
         "ESPI4": "ESP14",
         "ESP1A": "ESP14",
@@ -122,11 +126,11 @@ def detectar_figu(texto):
         "KORI": "KOR1",
         "JPNI": "JPN1",
     }
+
     for mal, bien in correcciones.items():
         if normalizar_texto(mal) in limpio:
             return bien
 
-    # Formato código + número: ESP14
     for codigo in PAISES.keys():
         match = re.search(rf"{codigo}([0-9]{{1,2}})", limpio)
         if match:
@@ -134,7 +138,6 @@ def detectar_figu(texto):
             if 1 <= numero <= 20:
                 return f"{codigo}{numero}"
 
-    # OCR a veces lee I como 1 o S como 5
     variantes = limpio.replace("I", "1").replace("L", "1").replace("O", "0")
     for codigo in PAISES.keys():
         match = re.search(rf"{codigo}([0-9]{{1,2}})", variantes)
@@ -143,7 +146,6 @@ def detectar_figu(texto):
             if 1 <= numero <= 20:
                 return f"{codigo}{numero}"
 
-    # Código separado del número
     for codigo in PAISES.keys():
         if codigo in limpio:
             numeros = re.findall(r"\d{1,2}", limpio)
@@ -156,10 +158,6 @@ def detectar_figu(texto):
 
 def preparar_zonas(img, crop_mode="normal"):
     ancho, alto = img.size
-
-    zonas = []
-
-    # zona normal: arriba derecha
     recortes = [
         (0.48, 0.00, 1.00, 0.30),
         (0.55, 0.00, 1.00, 0.25),
@@ -171,9 +169,9 @@ def preparar_zonas(img, crop_mode="normal"):
     elif crop_mode == "más amplio":
         recortes = [(0.35, 0.00, 1.00, 0.40), (0.40, 0.00, 1.00, 0.45)]
 
+    zonas = []
     for l, t, r, b in recortes:
-        zona = img.crop((int(ancho*l), int(alto*t), int(ancho*r), int(alto*b)))
-        zonas.append(zona)
+        zonas.append(img.crop((int(ancho*l), int(alto*t), int(ancho*r), int(alto*b))))
 
     return zonas
 
@@ -219,6 +217,7 @@ def calcular_matches(db, user):
 
         yo_necesito = set(current.get("faltantes", calcular_faltantes(current.get("album", []))))
         yo_tengo = set(current.get("repetidas", []))
+
         el_necesita = set(data.get("faltantes", calcular_faltantes(data.get("album", []))))
         el_tiene = set(data.get("repetidas", []))
 
@@ -242,12 +241,58 @@ def calcular_matches(db, user):
     salida.sort(key=lambda x: x["distancia"] if x["distancia"] is not None else 999999)
     return salida
 
+def estadisticas_admin(db):
+    total_usuarios = len(db.get("users", {}))
+    total_mensajes = len(db.get("messages", []))
+    total_album = 0
+    total_repetidas = 0
+    ciudades = {}
+    figuritas_repetidas = {}
+    figuritas_faltantes = {}
+    usuarios_detalle = []
+
+    for username, data in db.get("users", {}).items():
+        album = data.get("album", [])
+        repetidas = data.get("repetidas", [])
+        faltantes = calcular_faltantes(album)
+        ciudad = data.get("city", "Sin ciudad") or "Sin ciudad"
+
+        total_album += len(album)
+        total_repetidas += len(repetidas)
+        ciudades[ciudad] = ciudades.get(ciudad, 0) + 1
+
+        for f in repetidas:
+            figuritas_repetidas[f] = figuritas_repetidas.get(f, 0) + 1
+
+        for f in faltantes:
+            figuritas_faltantes[f] = figuritas_faltantes.get(f, 0) + 1
+
+        usuarios_detalle.append({
+            "usuario": data.get("display_name", username),
+            "zona": ciudad,
+            "album": len(album),
+            "faltantes": len(faltantes),
+            "repetidas": len(repetidas),
+            "matches": len(calcular_matches(db, username))
+        })
+
+    return {
+        "total_usuarios": total_usuarios,
+        "total_mensajes": total_mensajes,
+        "total_album": total_album,
+        "total_repetidas": total_repetidas,
+        "ciudades": ciudades,
+        "figuritas_repetidas": figuritas_repetidas,
+        "figuritas_faltantes": figuritas_faltantes,
+        "usuarios_detalle": usuarios_detalle
+    }
+
 def mobile_css():
     st.markdown("""
     <style>
     .stApp { background: linear-gradient(180deg, #f6f7fb 0%, #ffffff 100%); }
     section[data-testid="stSidebar"] { display: none; }
-    .block-container { max-width: 540px; padding-top: 1rem; padding-left: .8rem; padding-right: .8rem; }
+    .block-container { max-width: 560px; padding-top: 1rem; padding-left: .8rem; padding-right: .8rem; }
     .hero {
         background: linear-gradient(135deg, #1d5cff, #00b894);
         color: white; border-radius: 26px; padding: 22px; margin-bottom: 16px;
@@ -261,6 +306,10 @@ def mobile_css():
     .match-card {
         background: white; border-radius: 20px; padding: 16px; margin-bottom: 12px;
         border-left: 6px solid #00b894; box-shadow: 0 6px 18px rgba(0,0,0,.08);
+    }
+    .admin-card {
+        background: #111827; color: white; border-radius: 22px; padding: 18px; margin-bottom: 14px;
+        box-shadow: 0 8px 24px rgba(0,0,0,.12);
     }
     .stButton>button { border-radius: 999px; min-height: 42px; font-weight: 700; }
     </style>
@@ -279,50 +328,151 @@ st.markdown("""
 
 if "user" not in st.session_state:
     st.session_state.user = None
+if "is_admin" not in st.session_state:
+    st.session_state.is_admin = False
 
-if not st.session_state.user:
+if not st.session_state.user and not st.session_state.is_admin:
     st.markdown('<div class="app-card">', unsafe_allow_html=True)
-    st.subheader("Ingresar o crear usuario")
+    st.subheader("Ingresar")
 
-    modo_login = st.radio("Qué querés hacer", ["Entrar con usuario existente", "Crear usuario nuevo"])
+    modo_login = st.radio(
+        "Qué querés hacer",
+        ["Entrar con usuario existente", "Crear usuario nuevo", "Entrar como administrador"]
+    )
 
-    username = st.text_input("Nombre de usuario único", help="Ejemplo: lisi_2026, fran_rio3, juli_figus")
-    ciudad = st.text_input("Ciudad / barrio")
+    if modo_login == "Entrar como administrador":
+        admin_user = st.text_input("Usuario admin")
+        admin_pass = st.text_input("Clave admin", type="password")
 
-    if modo_login == "Crear usuario nuevo":
-        if st.button("Crear usuario"):
-            username_key = normalizar_usuario(username)
-
-            if not username_key:
-                st.error("Escribí un nombre de usuario.")
-            elif username_key in db["users"]:
-                st.error("Ese nombre de usuario ya existe. Elegí otro, por ejemplo agregando números o el barrio.")
-            else:
-                db["users"][username_key] = {
-                    "display_name": username.strip(),
-                    "city": ciudad.strip(),
-                    "album": [],
-                    "repetidas": [],
-                    "faltantes": todas_las_figus(),
-                    "lat": None,
-                    "lon": None,
-                    "seen_matches": []
-                }
-                save_db(db)
-                st.session_state.user = username_key
+        if st.button("Entrar al panel admin"):
+            if admin_user == ADMIN_USER and admin_pass == ADMIN_PASSWORD:
+                st.session_state.is_admin = True
+                st.session_state.user = "__admin__"
                 st.rerun()
+            else:
+                st.error("Usuario o clave incorrectos.")
 
     else:
-        if st.button("Entrar"):
-            username_key = normalizar_usuario(username)
+        username = st.text_input("Nombre de usuario único", help="Ejemplo: lisi_2026, fran_rio3, juli_figus")
+        ciudad = st.text_input("Ciudad / barrio")
 
-            if username_key in db["users"]:
-                st.session_state.user = username_key
-                st.rerun()
-            else:
-                st.error("Ese usuario no existe. Primero crealo como usuario nuevo.")
+        if modo_login == "Crear usuario nuevo":
+            if st.button("Crear usuario"):
+                username_key = normalizar_usuario(username)
+
+                if not username_key:
+                    st.error("Escribí un nombre de usuario.")
+                elif username_key in db["users"]:
+                    st.error("Ese nombre de usuario ya existe. Elegí otro.")
+                elif username_key == ADMIN_USER:
+                    st.error("Ese nombre está reservado para administración.")
+                else:
+                    db["users"][username_key] = {
+                        "display_name": username.strip(),
+                        "city": ciudad.strip(),
+                        "album": [],
+                        "repetidas": [],
+                        "faltantes": todas_las_figus(),
+                        "lat": None,
+                        "lon": None,
+                        "seen_matches": []
+                    }
+                    save_db(db)
+                    st.session_state.user = username_key
+                    st.rerun()
+
+        else:
+            if st.button("Entrar"):
+                username_key = normalizar_usuario(username)
+
+                if username_key in db["users"]:
+                    st.session_state.user = username_key
+                    st.rerun()
+                else:
+                    st.error("Ese usuario no existe. Primero crealo como usuario nuevo.")
 
     st.markdown('</div>', unsafe_allow_html=True)
+    st.stop()
+
+if st.session_state.is_admin:
+    st.markdown('<div class="admin-card"><h2>📊 Panel Administrador</h2><p>Resumen general de la app</p></div>', unsafe_allow_html=True)
+
+    stats = estadisticas_admin(db)
+
+    tab_a, tab_b, tab_c, tab_d = st.tabs(["Resumen", "Usuarios", "Figuritas", "Mensajes"])
+
+    with tab_a:
+        col1, col2 = st.columns(2)
+        col1.metric("👥 Usuarios", stats["total_usuarios"])
+        col2.metric("💬 Mensajes", stats["total_mensajes"])
+
+        col3, col4 = st.columns(2)
+        col3.metric("📒 Figuritas cargadas", stats["total_album"])
+        col4.metric("✅ Repetidas cargadas", stats["total_repetidas"])
+
+        st.subheader("🌎 Usuarios por ciudad")
+        if stats["ciudades"]:
+            for ciudad, cantidad in sorted(stats["ciudades"].items(), key=lambda x: x[1], reverse=True):
+                st.write(f"**{ciudad}:** {cantidad}")
+        else:
+            st.info("Todavía no hay usuarios.")
+
+    with tab_b:
+        st.subheader("👤 Usuarios registrados")
+
+        if not stats["usuarios_detalle"]:
+            st.info("Todavía no hay usuarios.")
+        else:
+            for u in sorted(stats["usuarios_detalle"], key=lambda x: x["album"], reverse=True):
+                with st.container(border=True):
+                    st.write(f"**Usuario:** {u['usuario']}")
+                    st.write(f"📍 Zona: {u['zona']}")
+                    st.write(f"📒 Álbum: {u['album']}")
+                    st.write(f"❌ Faltantes: {u['faltantes']}")
+                    st.write(f"✅ Repetidas: {u['repetidas']}")
+                    st.write(f"🤝 Matches posibles: {u['matches']}")
+
+    with tab_c:
+        st.subheader("🔥 Figuritas más repetidas")
+        repetidas_top = sorted(stats["figuritas_repetidas"].items(), key=lambda x: x[1], reverse=True)[:20]
+
+        if repetidas_top:
+            for figu, cantidad in repetidas_top:
+                st.write(f"**{figu}:** {cantidad}")
+        else:
+            st.info("Todavía no hay repetidas cargadas.")
+
+        st.subheader("🧩 Figuritas más faltantes")
+        faltantes_top = sorted(stats["figuritas_faltantes"].items(), key=lambda x: x[1], reverse=True)[:20]
+
+        if faltantes_top:
+            for figu, cantidad in faltantes_top:
+                st.write(f"**{figu}:** {cantidad}")
+        else:
+            st.info("No hay datos de faltantes.")
+
+    with tab_d:
+        st.subheader("💬 Mensajes enviados")
+
+        mensajes = db.get("messages", [])
+
+        if not mensajes:
+            st.info("Todavía no hay mensajes.")
+        else:
+            for m in reversed(mensajes[-50:]):
+                remitente = db["users"].get(m.get("from"), {}).get("display_name", m.get("from"))
+                destinatario = db["users"].get(m.get("to"), {}).get("display_name", m.get("to"))
+
+                with st.container(border=True):
+                    st.write(f"**De:** {remitente}")
+                    st.write(f"**Para:** {destinatario}")
+                    st.write(m.get("msg", ""))
+
+    if st.button("Cerrar panel admin"):
+        st.session_state.is_admin = False
+        st.session_state.user = None
+        st.rerun()
+
     st.stop()
 
 user = st.session_state.user
