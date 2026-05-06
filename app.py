@@ -17,33 +17,58 @@ DB = Path("database.json")
 ADMIN_USER = "admin"
 ADMIN_PASSWORD = "Regina2026"
 
-PAISES = {
-    "MEX": "🇲🇽 México",
-    "RSA": "🇿🇦 Sudáfrica",
-    "COR": "🇰🇷 Corea",
-    "CZE": "🇨🇿 República Checa",
-    "POR": "🇵🇹 Portugal",
-    "FRA": "🇫🇷 Francia",
-    "ARG": "🇦🇷 Argentina",
-    "BRA": "🇧🇷 Brasil",
-    "ESP": "🇪🇸 España",
-    "GER": "🇩🇪 Alemania",
-    "ITA": "🇮🇹 Italia",
-    "URU": "🇺🇾 Uruguay",
-    "CHI": "🇨🇱 Chile",
-    "COL": "🇨🇴 Colombia",
-    "USA": "🇺🇸 Estados Unidos",
-    "CAN": "🇨🇦 Canadá",
-    "JPN": "🇯🇵 Japón",
-    "KOR": "🇰🇷 Corea del Sur",
-    "AUS": "🇦🇺 Australia",
-    "MAR": "🇲🇦 Marruecos"
+# Lista ampliada. Incluye los países que ya veníamos usando + los que aparecían
+# en el archivo Album_Mundial_2026_Master.xlsx: Austria, Jordan, Portugal,
+# Congo DR, Uzbekistan, Colombia, England, Croatia, Ghana y Panama.
+SECCIONES = {
+    "MEX": {"nombre": "🇲🇽 México", "cantidad": 20},
+    "RSA": {"nombre": "🇿🇦 Sudáfrica", "cantidad": 20},
+    "COR": {"nombre": "🇰🇷 Corea", "cantidad": 20},
+    "CZE": {"nombre": "🇨🇿 República Checa", "cantidad": 20},
+    "POR": {"nombre": "🇵🇹 Portugal", "cantidad": 20},
+    "FRA": {"nombre": "🇫🇷 Francia", "cantidad": 20},
+    "ARG": {"nombre": "🇦🇷 Argentina", "cantidad": 20},
+    "BRA": {"nombre": "🇧🇷 Brasil", "cantidad": 20},
+    "ESP": {"nombre": "🇪🇸 España", "cantidad": 20},
+    "GER": {"nombre": "🇩🇪 Alemania", "cantidad": 20},
+    "ITA": {"nombre": "🇮🇹 Italia", "cantidad": 20},
+    "URU": {"nombre": "🇺🇾 Uruguay", "cantidad": 20},
+    "CHI": {"nombre": "🇨🇱 Chile", "cantidad": 20},
+    "COL": {"nombre": "🇨🇴 Colombia", "cantidad": 20},
+    "USA": {"nombre": "🇺🇸 Estados Unidos", "cantidad": 20},
+    "CAN": {"nombre": "🇨🇦 Canadá", "cantidad": 20},
+    "JPN": {"nombre": "🇯🇵 Japón", "cantidad": 20},
+    "KOR": {"nombre": "🇰🇷 Corea del Sur", "cantidad": 20},
+    "AUS": {"nombre": "🇦🇺 Australia", "cantidad": 20},
+    "MAR": {"nombre": "🇲🇦 Marruecos", "cantidad": 20},
+
+    # Agregados desde el archivo del álbum
+    "AUT": {"nombre": "🇦🇹 Austria", "cantidad": 20},
+    "JOR": {"nombre": "🇯🇴 Jordan", "cantidad": 20},
+    "COD": {"nombre": "🇨🇩 Congo DR", "cantidad": 20},
+    "UZB": {"nombre": "🇺🇿 Uzbekistan", "cantidad": 20},
+    "ENG": {"nombre": "🏴 England", "cantidad": 20},
+    "CRO": {"nombre": "🇭🇷 Croatia", "cantidad": 20},
+    "GHA": {"nombre": "🇬🇭 Ghana", "cantidad": 20},
+    "PAN": {"nombre": "🇵🇦 Panama", "cantidad": 20},
+
+    # Secciones especiales que aparecían en el archivo
+    "FWC": {"nombre": "🏆 FIFA World Cup History", "cantidad": 20},
+    "CC": {"nombre": "🥤 Coca-Cola", "cantidad": 20},
 }
 
-NUMEROS = list(range(1, 21))
+def codigo_figu(codigo, numero):
+    return f"{codigo}{numero}"
+
+def mostrar_figu(codigo, numero):
+    return f"{codigo}-{numero}"
 
 def todas_las_figus():
-    return [f"{codigo}{num}" for codigo in PAISES.keys() for num in NUMEROS]
+    figus = []
+    for codigo, data in SECCIONES.items():
+        for num in range(1, int(data["cantidad"]) + 1):
+            figus.append(codigo_figu(codigo, num))
+    return figus
 
 def calcular_faltantes(album):
     return sorted(set(todas_las_figus()) - set(album))
@@ -87,16 +112,15 @@ def load_db():
             data["lat"] = None
         if "lon" not in data:
             data["lon"] = None
-        if "seen_matches" not in data:
-            data["seen_matches"] = []
         data["faltantes"] = calcular_faltantes(data.get("album", []))
 
     return db
 
 def save_db(db):
+    validas = set(todas_las_figus())
     for usuario, data in db.get("users", {}).items():
-        data["album"] = sorted(set(data.get("album", [])))
-        data["repetidas"] = sorted(set(data.get("repetidas", [])))
+        data["album"] = sorted(set(data.get("album", [])).intersection(validas))
+        data["repetidas"] = sorted(set(data.get("repetidas", [])).intersection(validas))
         data["faltantes"] = calcular_faltantes(data.get("album", []))
     DB.write_text(json.dumps(db, indent=2, ensure_ascii=False), encoding="utf-8")
 
@@ -113,46 +137,29 @@ def normalizar_texto(texto):
 def detectar_figu(texto):
     limpio = normalizar_texto(texto)
 
-    correcciones = {
-        "ESPI4": "ESP14",
-        "ESP1A": "ESP14",
-        "ESPIA": "ESP14",
-        "ESP|4": "ESP14",
-        "ARGI": "ARG1",
-        "BRAI": "BRA1",
-        "MEXI": "MEX1",
-        "USAI": "USA1",
-        "CANI": "CAN1",
-        "KORI": "KOR1",
-        "JPNI": "JPN1",
-    }
+    # OCR suele confundir letras con números
+    variantes = [
+        limpio,
+        limpio.replace("I", "1").replace("L", "1").replace("O", "0"),
+        limpio.replace("S", "5"),
+    ]
 
-    for mal, bien in correcciones.items():
-        if normalizar_texto(mal) in limpio:
-            return bien
+    for variante in variantes:
+        for codigo, data in SECCIONES.items():
+            match = re.search(rf"{codigo}([0-9]{{1,2}})", variante)
+            if match:
+                numero = int(match.group(1))
+                if 1 <= numero <= int(data["cantidad"]):
+                    return codigo_figu(codigo, numero)
 
-    for codigo in PAISES.keys():
-        match = re.search(rf"{codigo}([0-9]{{1,2}})", limpio)
-        if match:
-            numero = int(match.group(1))
-            if 1 <= numero <= 20:
-                return f"{codigo}{numero}"
-
-    variantes = limpio.replace("I", "1").replace("L", "1").replace("O", "0")
-    for codigo in PAISES.keys():
-        match = re.search(rf"{codigo}([0-9]{{1,2}})", variantes)
-        if match:
-            numero = int(match.group(1))
-            if 1 <= numero <= 20:
-                return f"{codigo}{numero}"
-
-    for codigo in PAISES.keys():
-        if codigo in limpio:
-            numeros = re.findall(r"\d{1,2}", limpio)
-            for n in numeros:
-                numero = int(n)
-                if 1 <= numero <= 20:
-                    return f"{codigo}{numero}"
+    for variante in variantes:
+        for codigo, data in SECCIONES.items():
+            if codigo in variante:
+                numeros = re.findall(r"\d{1,2}", variante)
+                for n in numeros:
+                    numero = int(n)
+                    if 1 <= numero <= int(data["cantidad"]):
+                        return codigo_figu(codigo, numero)
 
     return None
 
@@ -172,7 +179,6 @@ def preparar_zonas(img, crop_mode="normal"):
     zonas = []
     for l, t, r, b in recortes:
         zonas.append(img.crop((int(ancho*l), int(alto*t), int(ancho*r), int(alto*b))))
-
     return zonas
 
 def mejorar_zona(zona):
@@ -187,23 +193,18 @@ def mejorar_zona(zona):
 def ocr_imagen(img, crop_mode="normal"):
     textos = []
     zonas_mejoradas = []
-
     try:
         img = ImageOps.exif_transpose(img)
-
         for zona in preparar_zonas(img, crop_mode):
             zona_m = mejorar_zona(zona)
             zonas_mejoradas.append(zona_m)
-
             for config in [
                 "--psm 7 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
                 "--psm 8 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
                 "--psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
             ]:
                 textos.append(pytesseract.image_to_string(zona_m, config=config))
-
         return "\n".join(textos), zonas_mejoradas
-
     except Exception:
         return "", zonas_mejoradas
 
@@ -217,7 +218,6 @@ def calcular_matches(db, user):
 
         yo_necesito = set(current.get("faltantes", calcular_faltantes(current.get("album", []))))
         yo_tengo = set(current.get("repetidas", []))
-
         el_necesita = set(data.get("faltantes", calcular_faltantes(data.get("album", []))))
         el_tiene = set(data.get("repetidas", []))
 
@@ -263,7 +263,6 @@ def estadisticas_admin(db):
 
         for f in repetidas:
             figuritas_repetidas[f] = figuritas_repetidas.get(f, 0) + 1
-
         for f in faltantes:
             figuritas_faltantes[f] = figuritas_faltantes.get(f, 0) + 1
 
@@ -292,7 +291,7 @@ def mobile_css():
     <style>
     .stApp { background: linear-gradient(180deg, #f6f7fb 0%, #ffffff 100%); }
     section[data-testid="stSidebar"] { display: none; }
-    .block-container { max-width: 560px; padding-top: 1rem; padding-left: .8rem; padding-right: .8rem; }
+    .block-container { max-width: 580px; padding-top: 1rem; padding-left: .8rem; padding-right: .8rem; }
     .hero {
         background: linear-gradient(135deg, #1d5cff, #00b894);
         color: white; border-radius: 26px; padding: 22px; margin-bottom: 16px;
@@ -316,7 +315,6 @@ def mobile_css():
     """, unsafe_allow_html=True)
 
 mobile_css()
-
 db = load_db()
 
 st.markdown("""
@@ -351,7 +349,6 @@ if not st.session_state.user and not st.session_state.is_admin:
                 st.rerun()
             else:
                 st.error("Usuario o clave incorrectos.")
-
     else:
         username = st.text_input("Nombre de usuario único", help="Ejemplo: lisi_2026, fran_rio3, juli_figus")
         ciudad = st.text_input("Ciudad / barrio")
@@ -359,7 +356,6 @@ if not st.session_state.user and not st.session_state.is_admin:
         if modo_login == "Crear usuario nuevo":
             if st.button("Crear usuario"):
                 username_key = normalizar_usuario(username)
-
                 if not username_key:
                     st.error("Escribí un nombre de usuario.")
                 elif username_key in db["users"]:
@@ -375,16 +371,13 @@ if not st.session_state.user and not st.session_state.is_admin:
                         "faltantes": todas_las_figus(),
                         "lat": None,
                         "lon": None,
-                        "seen_matches": []
                     }
                     save_db(db)
                     st.session_state.user = username_key
                     st.rerun()
-
         else:
             if st.button("Entrar"):
                 username_key = normalizar_usuario(username)
-
                 if username_key in db["users"]:
                     st.session_state.user = username_key
                     st.rerun()
@@ -396,7 +389,6 @@ if not st.session_state.user and not st.session_state.is_admin:
 
 if st.session_state.is_admin:
     st.markdown('<div class="admin-card"><h2>📊 Panel Administrador</h2><p>Resumen general de la app</p></div>', unsafe_allow_html=True)
-
     stats = estadisticas_admin(db)
 
     tab_a, tab_b, tab_c, tab_d = st.tabs(["Resumen", "Usuarios", "Figuritas", "Mensajes"])
@@ -405,21 +397,21 @@ if st.session_state.is_admin:
         col1, col2 = st.columns(2)
         col1.metric("👥 Usuarios", stats["total_usuarios"])
         col2.metric("💬 Mensajes", stats["total_mensajes"])
-
         col3, col4 = st.columns(2)
         col3.metric("📒 Figuritas cargadas", stats["total_album"])
         col4.metric("✅ Repetidas cargadas", stats["total_repetidas"])
+        st.metric("🧩 Total de figuritas del álbum", len(todas_las_figus()))
 
         st.subheader("🌎 Usuarios por ciudad")
-        if stats["ciudades"]:
-            for ciudad, cantidad in sorted(stats["ciudades"].items(), key=lambda x: x[1], reverse=True):
-                st.write(f"**{ciudad}:** {cantidad}")
-        else:
-            st.info("Todavía no hay usuarios.")
+        for ciudad, cantidad in sorted(stats["ciudades"].items(), key=lambda x: x[1], reverse=True):
+            st.write(f"**{ciudad}:** {cantidad}")
+
+        with st.expander("Ver secciones del álbum"):
+            for codigo, data in SECCIONES.items():
+                st.write(f"{codigo} — {data['nombre']} — {data['cantidad']} figuritas")
 
     with tab_b:
         st.subheader("👤 Usuarios registrados")
-
         if not stats["usuarios_detalle"]:
             st.info("Todavía no hay usuarios.")
         else:
@@ -435,7 +427,6 @@ if st.session_state.is_admin:
     with tab_c:
         st.subheader("🔥 Figuritas más repetidas")
         repetidas_top = sorted(stats["figuritas_repetidas"].items(), key=lambda x: x[1], reverse=True)[:20]
-
         if repetidas_top:
             for figu, cantidad in repetidas_top:
                 st.write(f"**{figu}:** {cantidad}")
@@ -444,7 +435,6 @@ if st.session_state.is_admin:
 
         st.subheader("🧩 Figuritas más faltantes")
         faltantes_top = sorted(stats["figuritas_faltantes"].items(), key=lambda x: x[1], reverse=True)[:20]
-
         if faltantes_top:
             for figu, cantidad in faltantes_top:
                 st.write(f"**{figu}:** {cantidad}")
@@ -453,16 +443,13 @@ if st.session_state.is_admin:
 
     with tab_d:
         st.subheader("💬 Mensajes enviados")
-
         mensajes = db.get("messages", [])
-
         if not mensajes:
             st.info("Todavía no hay mensajes.")
         else:
             for m in reversed(mensajes[-50:]):
                 remitente = db["users"].get(m.get("from"), {}).get("display_name", m.get("from"))
                 destinatario = db["users"].get(m.get("to"), {}).get("display_name", m.get("to"))
-
                 with st.container(border=True):
                     st.write(f"**De:** {remitente}")
                     st.write(f"**Para:** {destinatario}")
@@ -484,7 +471,6 @@ if user not in db["users"]:
 
 usuario = db["users"][user]
 matches_actuales = calcular_matches(db, user)
-
 st.caption(f"Conectado como: {usuario.get('display_name', user)}")
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["Inicio", "Álbum", "Escanear", "Matches", "Mensajes"])
@@ -492,7 +478,6 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs(["Inicio", "Álbum", "Escanear", "Matches
 with tab1:
     st.markdown('<div class="app-card">', unsafe_allow_html=True)
     st.subheader("📍 Ubicación")
-
     if get_geolocation:
         geo = get_geolocation()
         if geo and "coords" in geo:
@@ -518,7 +503,7 @@ with tab1:
     album = usuario.get("album", [])
     repetidas = usuario.get("repetidas", [])
     faltantes = calcular_faltantes(album)
-    st.write(f"📒 Tenés en álbum: {len(album)}")
+    st.write(f"📒 Tenés en álbum: {len(album)} de {len(todas_las_figus())}")
     st.write(f"❌ Faltantes: {len(faltantes)}")
     st.write(f"✅ Repetidas: {len(repetidas)}")
     st.write(f"🤝 Matches: {len(matches_actuales)}")
@@ -537,24 +522,26 @@ with tab2:
     nuevo_album = set()
     nuevas_repetidas = set()
 
-    for codigo, nombre_pais in PAISES.items():
-        with st.expander(f"{nombre_pais} — {codigo}"):
+    for codigo, data in SECCIONES.items():
+        with st.expander(f"{data['nombre']} — {codigo}"):
             col1, col2 = st.columns(2)
             with col1:
                 st.markdown("**📌 Ya la tengo**")
                 cols_album = st.columns(4)
-                for i, num in enumerate(NUMEROS):
-                    figu = f"{codigo}{num}"
+                for i, num in enumerate(range(1, int(data["cantidad"]) + 1)):
+                    figu = codigo_figu(codigo, num)
+                    label = mostrar_figu(codigo, num)
                     with cols_album[i % 4]:
-                        if st.checkbox(figu, value=figu in album_guardado, key=f"album_{figu}"):
+                        if st.checkbox(label, value=figu in album_guardado, key=f"album_{figu}"):
                             nuevo_album.add(figu)
             with col2:
                 st.markdown("**✅ Repetida**")
                 cols_rep = st.columns(4)
-                for i, num in enumerate(NUMEROS):
-                    figu = f"{codigo}{num}"
+                for i, num in enumerate(range(1, int(data["cantidad"]) + 1)):
+                    figu = codigo_figu(codigo, num)
+                    label = mostrar_figu(codigo, num)
                     with cols_rep[i % 4]:
-                        if st.checkbox(figu, value=figu in repetidas_guardadas, key=f"rep_{figu}"):
+                        if st.checkbox(label, value=figu in repetidas_guardadas, key=f"rep_{figu}"):
                             nuevas_repetidas.add(figu)
 
     album_final = set(nuevo_album).union(nuevas_repetidas)
@@ -593,7 +580,6 @@ with tab3:
             imagenes.append(("foto_camara", Image.open(foto)))
 
     detectadas = []
-
     if imagenes and st.button("🔎 Detectar todas"):
         for nombre, img in imagenes:
             texto, zonas = ocr_imagen(img, crop_mode)
@@ -618,7 +604,6 @@ with tab3:
         st.session_state.detectadas = sorted(set(detectadas))
 
     detectadas_guardadas = st.session_state.get("detectadas", [])
-
     if detectadas_guardadas:
         st.subheader("Guardar detectadas")
         st.write(", ".join(detectadas_guardadas))
@@ -636,22 +621,18 @@ with tab3:
     st.subheader("Carga manual rápida")
     col_a, col_b = st.columns(2)
     with col_a:
-        pais_manual = st.selectbox("País", list(PAISES.keys()))
+        pais_manual = st.selectbox("País / sección", list(SECCIONES.keys()), format_func=lambda x: f"{SECCIONES[x]['nombre']} — {x}")
     with col_b:
-        numero_manual = st.selectbox("Número", NUMEROS)
+        numero_manual = st.selectbox("Número", list(range(1, int(SECCIONES[pais_manual]["cantidad"]) + 1)))
 
     destino_manual = st.radio("Guardar manual como", ["Ya la tengo en el álbum", "Repetida para cambiar"], key="destino_manual")
-
     if st.button("Agregar manual"):
-        figu = f"{pais_manual}{numero_manual}"
+        figu = codigo_figu(pais_manual, numero_manual)
         db = load_db()
-
         if figu not in db["users"][user]["album"]:
             db["users"][user]["album"].append(figu)
-
         if destino_manual == "Repetida para cambiar" and figu not in db["users"][user]["repetidas"]:
             db["users"][user]["repetidas"].append(figu)
-
         save_db(db)
         st.success(f"{figu} agregada.")
 
