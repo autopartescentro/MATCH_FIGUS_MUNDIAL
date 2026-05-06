@@ -1,4 +1,1 @@
 streamlit
-pillow
-pytesseract
-streamlit-js-eval
