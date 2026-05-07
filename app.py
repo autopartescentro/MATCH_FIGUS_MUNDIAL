@@ -358,53 +358,13 @@ def estadisticas_admin(db):
     }
 
 def mobile_css():
-    
-st.markdown("""
+    st.markdown("""
     <style>
     .stApp { background: linear-gradient(180deg, #f6f7fb 0%, #ffffff 100%); }
     section[data-testid="stSidebar"] { display: none; }
     .block-container { max-width: 560px; padding-top: 1rem; padding-left: .8rem; padding-right: .8rem; }
 
-    .hero {
-        background: linear-gradient(135deg, #1d5cff, #00b894);
-        color: white; border-radius: 26px; padding: 22px; margin-bottom: 16px;
-        box-shadow: 0 12px 30px rgba(29,92,255,.25);
-    }
-
-    .hero h1 { color: white; font-size: 30px; margin-bottom: 4px; }
-
-    .app-card {
-        background: white; border-radius: 22px; padding: 18px; margin-bottom: 14px;
-        box-shadow: 0 8px 24px rgba(0,0,0,.08);
-        border: 1px solid rgba(0,0,0,.04);
-    }
-
-    .match-card {
-        background: white;
-        border-radius: 20px;
-        padding: 16px;
-        margin-bottom: 12px;
-        border-left: 6px solid #00b894;
-        box-shadow: 0 6px 18px rgba(0,0,0,.08);
-    }
-
-    .admin-card {
-        background: #111827;
-        color: white;
-        border-radius: 22px;
-        padding: 18px;
-        margin-bottom: 14px;
-        box-shadow: 0 8px 24px rgba(0,0,0,.12);
-    }
-
-    .stButton>button {
-        border-radius: 999px;
-        min-height: 42px;
-        font-weight: 700;
-    }
-
-    /* OCULTAR TODO EL BRANDING DE STREAMLIT */
-
+    /* OCULTAR BRANDING STREAMLIT */
     #MainMenu {visibility: hidden;}
     header {visibility: hidden;}
     footer {visibility: hidden;}
@@ -425,29 +385,30 @@ st.markdown("""
         display: none !important;
     }
 
-    .viewerBadge_container__1QSob {
-        display: none !important;
-    }
-
-    .viewerBadge_link__1S137 {
-        display: none !important;
-    }
-
-    .viewerBadge_text__1JaDK {
-        display: none !important;
-    }
-
     iframe {
         display: none !important;
     }
-
-    footer {
-        display: none !important;
+    .hero {
+        background: linear-gradient(135deg, #1d5cff, #00b894);
+        color: white; border-radius: 26px; padding: 22px; margin-bottom: 16px;
+        box-shadow: 0 12px 30px rgba(29,92,255,.25);
     }
-
+    .hero h1 { color: white; font-size: 30px; margin-bottom: 4px; }
+    .app-card {
+        background: white; border-radius: 22px; padding: 18px; margin-bottom: 14px;
+        box-shadow: 0 8px 24px rgba(0,0,0,.08); border: 1px solid rgba(0,0,0,.04);
+    }
+    .match-card {
+        background: white; border-radius: 20px; padding: 16px; margin-bottom: 12px;
+        border-left: 6px solid #00b894; box-shadow: 0 6px 18px rgba(0,0,0,.08);
+    }
+    .admin-card {
+        background: #111827; color: white; border-radius: 22px; padding: 18px; margin-bottom: 14px;
+        box-shadow: 0 8px 24px rgba(0,0,0,.12);
+    }
+    .stButton>button { border-radius: 999px; min-height: 42px; font-weight: 700; }
     </style>
     """, unsafe_allow_html=True)
-
 
 mobile_css()
 
