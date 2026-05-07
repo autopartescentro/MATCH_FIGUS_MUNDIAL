@@ -92,6 +92,9 @@ def todas_las_figus():
 def calcular_faltantes(album):
     return sorted(set(todas_las_figus()) - set(album))
 
+def match_key(usuario1, usuario2, me_puede_dar, yo_puedo_dar):
+    return f"{usuario1}|{usuario2}|{'-'.join(sorted(me_puede_dar))}|{'-'.join(sorted(yo_puedo_dar))}"
+
 def normalizar_usuario(nombre):
     return nombre.strip().lower()
 
@@ -559,6 +562,24 @@ with tab1:
 
     st.markdown('<div class="app-card">', unsafe_allow_html=True)
     st.subheader("Resumen")
+
+    matches_preview = calcular_matches(db, user)
+    vistos_preview = set(usuario.get("seen_matches", []))
+
+    nuevos_preview = 0
+    for m in matches_preview:
+        clave = match_key(
+            user,
+            m["usuario"],
+            m["me_puede_dar"],
+            m["yo_puedo_dar"]
+        )
+        if clave not in vistos_preview:
+            nuevos_preview += 1
+
+    if nuevos_preview > 0:
+        st.markdown(f"### 🔔 {nuevos_preview} match(es) nuevos")
+
     album = usuario.get("album", [])
     repetidas = usuario.get("repetidas", [])
     faltantes = calcular_faltantes(album)
@@ -581,46 +602,49 @@ with tab2:
     nuevo_album = set()
     nuevas_repetidas = set()
 
+    st.subheader("📒 Figuritas que tengo")
+
     for codigo, nombre_pais in PAISES.items():
         with st.expander(f"{nombre_pais} — {codigo}"):
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown("**📌 Ya la tengo**")
-                cols_album = st.columns(4)
-                for i, num in enumerate(NUMEROS):
-                    figu = f"{codigo}{num}"
-                    with cols_album[i % 4]:
-                        if st.checkbox(figu, value=figu in album_guardado, key=f"album_{figu}"):
-                            nuevo_album.add(figu)
-            with col2:
-                st.markdown("**✅ Repetida**")
-                cols_rep = st.columns(4)
-                for i, num in enumerate(NUMEROS):
-                    figu = f"{codigo}{num}"
-                    with cols_rep[i % 4]:
-                        if st.checkbox(figu, value=figu in repetidas_guardadas, key=f"rep_{figu}"):
-                            nuevas_repetidas.add(figu)
+            cols_album = st.columns(5)
+            for i, num in enumerate(NUMEROS):
+                figu = f"{codigo}{num}"
+                with cols_album[i % 5]:
+                    if st.checkbox(figu, value=figu in album_guardado, key=f"album_{figu}"):
+                        nuevo_album.add(figu)
 
-    st.subheader("⭐ Figuritas especiales")
+    st.subheader("⭐ Especiales que tengo")
+
     for codigo, data in EXTRAS.items():
         with st.expander(f"{data['nombre']} — {codigo}"):
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown("**📌 Ya la tengo**")
-                cols_album = st.columns(4)
-                for i, num in enumerate(data["numeros"]):
-                    figu = f"{codigo}{num}"
-                    with cols_album[i % 4]:
-                        if st.checkbox(figu, value=figu in album_guardado, key=f"album_{figu}"):
-                            nuevo_album.add(figu)
-            with col2:
-                st.markdown("**✅ Repetida**")
-                cols_rep = st.columns(4)
-                for i, num in enumerate(data["numeros"]):
-                    figu = f"{codigo}{num}"
-                    with cols_rep[i % 4]:
-                        if st.checkbox(figu, value=figu in repetidas_guardadas, key=f"rep_{figu}"):
-                            nuevas_repetidas.add(figu)
+            cols_album = st.columns(5)
+            for i, num in enumerate(data["numeros"]):
+                figu = f"{codigo}{num}"
+                with cols_album[i % 5]:
+                    if st.checkbox(figu, value=figu in album_guardado, key=f"album_{figu}"):
+                        nuevo_album.add(figu)
+
+    st.subheader("✅ Figuritas repetidas")
+
+    for codigo, nombre_pais in PAISES.items():
+        with st.expander(f"{nombre_pais} — {codigo}"):
+            cols_rep = st.columns(5)
+            for i, num in enumerate(NUMEROS):
+                figu = f"{codigo}{num}"
+                with cols_rep[i % 5]:
+                    if st.checkbox(figu, value=figu in repetidas_guardadas, key=f"rep_{figu}"):
+                        nuevas_repetidas.add(figu)
+
+    st.subheader("🥤⭐ Especiales repetidas")
+
+    for codigo, data in EXTRAS.items():
+        with st.expander(f"{data['nombre']} — {codigo}"):
+            cols_rep = st.columns(5)
+            for i, num in enumerate(data["numeros"]):
+                figu = f"{codigo}{num}"
+                with cols_rep[i % 5]:
+                    if st.checkbox(figu, value=figu in repetidas_guardadas, key=f"rep_{figu}"):
+                        nuevas_repetidas.add(figu)
 
     album_final = set(nuevo_album).union(nuevas_repetidas)
     faltantes = calcular_faltantes(album_final)
@@ -727,6 +751,31 @@ with tab3:
 with tab4:
     st.subheader("🤝 Matches")
     matches = calcular_matches(db, user)
+
+    usuario_actual = db["users"].get(user, {})
+    vistos = set(usuario_actual.get("seen_matches", []))
+
+    matches_nuevos = []
+    matches_keys_actuales = []
+
+    for m in matches:
+        clave = match_key(
+            user,
+            m["usuario"],
+            m["me_puede_dar"],
+            m["yo_puedo_dar"]
+        )
+
+        matches_keys_actuales.append(clave)
+
+        if clave not in vistos:
+            matches_nuevos.append(clave)
+
+    if matches_nuevos:
+        st.success(f"🔔 Tenés {len(matches_nuevos)} match(es) nuevos!")
+
+        db["users"][user]["seen_matches"] = list(set(vistos.union(matches_keys_actuales)))
+        save_db(db)
 
     if not matches:
         st.warning("Todavía no hay matches.")
