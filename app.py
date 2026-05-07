@@ -93,7 +93,30 @@ def calcular_faltantes(album):
     return sorted(set(todas_las_figus()) - set(album))
 
 def match_key(usuario1, usuario2, me_puede_dar, yo_puedo_dar):
-    return f"{usuario1}|{usuario2}|{'-'.join(sorted(me_puede_dar))}|{'-'.join(sorted(yo_puedo_dar))}"
+    partes = [
+        usuario1,
+        usuario2,
+        ",".join(sorted(me_puede_dar)),
+        ",".join(sorted(yo_puedo_dar)),
+    ]
+    return "|".join(partes)
+
+def obtener_matches_nuevos(db, user, matches):
+    usuario_actual = db["users"].get(user, {})
+    vistos = set(usuario_actual.get("seen_matches", []))
+    nuevos = []
+
+    for m in matches:
+        clave = match_key(
+            user,
+            m["usuario"],
+            m["me_puede_dar"],
+            m["yo_puedo_dar"]
+        )
+        if clave not in vistos:
+            nuevos.append((clave, m))
+
+    return nuevos
 
 def normalizar_usuario(nombre):
     return nombre.strip().lower()
@@ -564,21 +587,10 @@ with tab1:
     st.subheader("Resumen")
 
     matches_preview = calcular_matches(db, user)
-    vistos_preview = set(usuario.get("seen_matches", []))
+    nuevos_preview = obtener_matches_nuevos(db, user, matches_preview)
 
-    nuevos_preview = 0
-    for m in matches_preview:
-        clave = match_key(
-            user,
-            m["usuario"],
-            m["me_puede_dar"],
-            m["yo_puedo_dar"]
-        )
-        if clave not in vistos_preview:
-            nuevos_preview += 1
-
-    if nuevos_preview > 0:
-        st.markdown(f"### 🔔 {nuevos_preview} match(es) nuevos")
+    if nuevos_preview:
+        st.success(f"🔔 Tenés {len(nuevos_preview)} match(es) nuevos. Entrá a la pestaña 🤝 Matches para verlos.")
 
     album = usuario.get("album", [])
     repetidas = usuario.get("repetidas", [])
@@ -751,40 +763,37 @@ with tab3:
 with tab4:
     st.subheader("🤝 Matches")
     matches = calcular_matches(db, user)
+    nuevos = obtener_matches_nuevos(db, user, matches)
+    claves_nuevas = {clave for clave, _ in nuevos}
 
-    usuario_actual = db["users"].get(user, {})
-    vistos = set(usuario_actual.get("seen_matches", []))
+    if nuevos:
+        st.success(f"🔔 Tenés {len(nuevos)} match(es) nuevos!")
 
-    matches_nuevos = []
-    matches_keys_actuales = []
-
-    for m in matches:
-        clave = match_key(
-            user,
-            m["usuario"],
-            m["me_puede_dar"],
-            m["yo_puedo_dar"]
-        )
-
-        matches_keys_actuales.append(clave)
-
-        if clave not in vistos:
-            matches_nuevos.append(clave)
-
-    if matches_nuevos:
-        st.success(f"🔔 Tenés {len(matches_nuevos)} match(es) nuevos!")
-
-        db["users"][user]["seen_matches"] = list(set(vistos.union(matches_keys_actuales)))
-        save_db(db)
+        if st.button("Marcar matches como vistos"):
+            vistos = set(db["users"][user].get("seen_matches", []))
+            vistos.update(claves_nuevas)
+            db["users"][user]["seen_matches"] = sorted(vistos)
+            save_db(db)
+            st.success("Matches marcados como vistos.")
+            st.rerun()
 
     if not matches:
         st.warning("Todavía no hay matches.")
     else:
         for m in matches:
+            clave = match_key(
+                user,
+                m["usuario"],
+                m["me_puede_dar"],
+                m["yo_puedo_dar"]
+            )
+
+            etiqueta_nuevo = "🆕 NUEVO — " if clave in claves_nuevas else ""
             dist_txt = f" — a {m['distancia']} km" if m["distancia"] is not None else ""
+
             st.markdown(f"""
             <div class="match-card">
-            <h3>✅ {m['nombre']}</h3>
+            <h3>{etiqueta_nuevo}✅ {m['nombre']}</h3>
             <p>📍 {m['zona']}{dist_txt}</p>
             <p><b>Te puede dar:</b> {", ".join(m['me_puede_dar'])}</p>
             <p><b>Vos le podés dar:</b> {", ".join(m['yo_puedo_dar'])}</p>
