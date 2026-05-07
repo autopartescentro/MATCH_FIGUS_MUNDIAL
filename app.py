@@ -382,6 +382,27 @@ def mobile_css():
         box-shadow: 0 8px 24px rgba(0,0,0,.12);
     }
     .stButton>button { border-radius: 999px; min-height: 42px; font-weight: 700; }
+    /* Ocultar branding de Streamlit */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+
+    [data-testid="stToolbar"] {
+        display: none;
+    }
+
+    [data-testid="stDecoration"] {
+        display: none;
+    }
+
+    .viewerBadge_container__1QSob {
+        display: none;
+    }
+
+    footer {
+        display: none;
+    }
+
     </style>
     """, unsafe_allow_html=True)
 
